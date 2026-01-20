@@ -51,6 +51,8 @@ Verify: `gsd doctor`
 
 ## Configuration
 
+All configuration files live in `.gsd/` folder in your project root.
+
 ### Model Config (`.gsd/models.json`)
 
 Override defaults per project:
@@ -59,14 +61,66 @@ Override defaults per project:
 {
   "glm": {
     "model": "zai-coding-plan/glm-4.7",
-    "timeout": 300000
+    "timeout": 300000,
+    "fallback": "zai-coding-plan/glm-4.7-flash"
   },
   "codex": {
     "model": "gpt-5.2-codex",
+    "reasoningEffort": "high",
+    "timeout": 60000,
     "sandbox": "read-only"
   }
 }
 ```
+
+#### Model Options Reference
+
+| Provider | Option | Type | Default | Description |
+|----------|--------|------|---------|-------------|
+| `glm` | `cli` | string | `"opencode"` | CLI executable |
+| `glm` | `model` | string | `"zai-coding-plan/glm-4.7"` | Model ID |
+| `glm` | `timeout` | number | `300000` | Max execution time (ms) |
+| `glm` | `maxRetries` | number | `1` | Retry attempts |
+| `glm` | `fallback` | string | `"glm-4.7-flash"` | Fallback model |
+| `codex` | `cli` | string | `"codex"` | CLI executable |
+| `codex` | `model` | string | `"gpt-5.2-codex"` | Model ID |
+| `codex` | `reasoningEffort` | string | `"high"` | `"low"` \| `"medium"` \| `"high"` |
+| `codex` | `timeout` | number | `60000` | Max review time (ms) |
+| `codex` | `maxRetries` | number | `2` | Retry attempts |
+| `codex` | `sandbox` | string | `"read-only"` | Sandbox mode |
+
+### Prompt Templates (`.gsd/prompts.json`)
+
+Customize prompts sent to models:
+
+```json
+{
+  "review": "Review the following changes for task: {{task}}\n\nChanges:\n{{changes}}\n\nIMPORTANT: Your response MUST start with exactly one of these verdicts on its own line:\n- APPROVED (if the changes are good)\n- FEEDBACK: <your feedback> (if there are issues)\n\nDo not include any text before the verdict.",
+
+  "implementation": "=== INSTRUCTIONS ===\n- Implement the task following project conventions\n- Use ES modules (import/export) syntax\n- Include appropriate error handling\n- Keep code simple and readable",
+
+  "projectContext": "=== PROJECT CONTEXT ===\n{{context}}",
+
+  "implementationSpec": "=== IMPLEMENTATION SPEC ===\n{{spec}}",
+
+  "taskSection": "=== TASK ===\n{{task}}",
+
+  "feedbackSection": "=== FEEDBACK TO ADDRESS ===\n{{feedback}}",
+
+  "errorFeedback": "Previous attempt failed: {{error}}. Please try again."
+}
+```
+
+#### Template Variables
+
+| Variable | Used In | Description |
+|----------|---------|-------------|
+| `{{task}}` | review, taskSection | The task description |
+| `{{changes}}` | review | Git diff + new file contents |
+| `{{context}}` | projectContext | Project files, package.json info |
+| `{{spec}}` | implementationSpec | Detailed implementation spec |
+| `{{feedback}}` | feedbackSection | Review feedback for retry |
+| `{{error}}` | errorFeedback | Error message from failed attempt |
 
 ### Environment Variables
 

@@ -130,9 +130,9 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 
 ## Configuration
 
-### Per-Project Model Config
+All configuration files live in `.gsd/` folder in your project root.
 
-Create `.gsd/models.json` in your project:
+### Model Config (`.gsd/models.json`)
 
 ```json
 {
@@ -143,11 +143,51 @@ Create `.gsd/models.json` in your project:
   },
   "codex": {
     "model": "gpt-5.2-codex",
+    "reasoningEffort": "high",
     "timeout": 60000,
     "sandbox": "read-only"
   }
 }
 ```
+
+#### Available Options
+
+| Provider | Option | Values | Description |
+|----------|--------|--------|-------------|
+| `glm` | `model` | string | GLM model ID |
+| `glm` | `timeout` | number | Max execution time (ms) |
+| `glm` | `fallback` | string | Fallback model on failure |
+| `codex` | `model` | string | GPT model ID |
+| `codex` | `reasoningEffort` | `"low"` \| `"medium"` \| `"high"` | Thinking depth |
+| `codex` | `sandbox` | `"read-only"` | Sandbox mode |
+| `codex` | `timeout` | number | Max review time (ms) |
+
+### Prompt Templates (`.gsd/prompts.json`)
+
+Customize the prompts sent to each model:
+
+```json
+{
+  "review": "Review the following changes for task: {{task}}\n\nChanges:\n{{changes}}\n\nIMPORTANT: Start with APPROVED or FEEDBACK: <issues>",
+
+  "implementation": "=== INSTRUCTIONS ===\n- Follow project conventions\n- Use ES modules\n- Include error handling",
+
+  "projectContext": "=== PROJECT CONTEXT ===\n{{context}}",
+
+  "taskSection": "=== TASK ===\n{{task}}",
+
+  "feedbackSection": "=== FEEDBACK TO ADDRESS ===\n{{feedback}}"
+}
+```
+
+#### Template Variables
+
+| Variable | Used In | Description |
+|----------|---------|-------------|
+| `{{task}}` | review, taskSection | The task description |
+| `{{changes}}` | review | Git diff + new files |
+| `{{context}}` | projectContext | Project files, dependencies |
+| `{{feedback}}` | feedbackSection | Review feedback for retry |
 
 ### Environment Variables
 
