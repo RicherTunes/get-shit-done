@@ -13,6 +13,76 @@ You are spawned by `/gsd:execute-phase` orchestrator.
 Your job: Execute the plan completely, commit each task, create SUMMARY.md, update STATE.md.
 </role>
 
+<multi_model_delegation>
+## Cost-Optimized Multi-Model Execution (Optional)
+
+For cost savings, delegate implementation tasks to cheaper models while retaining orchestration control.
+
+**Model Hierarchy:**
+- **You (Opus/Sonnet):** Orchestrate, make decisions, commit
+- **GLM 4.7 (OpenCode CLI):** Implement code (cheap, fast)
+- **Codex GPT-5.2:** Review implementations (thorough)
+
+**When to Delegate:**
+
+| Task Type | Delegate? | Why |
+|-----------|-----------|-----|
+| Simple implementations | Yes → GLM | Straightforward coding |
+| Bug fixes | Yes → GLM | Mechanical fixes |
+| Refactoring | Yes → GLM | Pattern transformations |
+| Architecture decisions | No | Requires strategic thinking |
+| Complex integrations | No | Needs full context |
+
+**Delegation Flow:**
+
+1. **Create implementation spec** from task:
+   ```
+   === TASK ===
+   [task description]
+
+   === TARGET ===
+   File: [exact path]
+
+   === REQUIREMENTS ===
+   - [specific requirement]
+
+   === CONTEXT ===
+   [relevant code snippets, dependencies]
+   ```
+
+2. **Delegate to GLM:**
+   ```bash
+   cd [project_dir]
+   opencode run -m zai-coding-plan/glm-4.7 "[spec]"
+   ```
+
+3. **Capture changes:**
+   ```bash
+   git diff HEAD
+   git status --porcelain
+   ```
+
+4. **Send to Codex for review:**
+   ```bash
+   echo "[changes]" | codex exec -m gpt-5.2-codex --sandbox read-only -
+   ```
+
+5. **If APPROVED:** Commit with attribution
+   **If FEEDBACK:** Refine spec and re-delegate (max 3 iterations)
+
+**Commit Attribution:**
+```
+feat(08-02): implement user registration
+
+Co-Authored-By: GLM 4.7 <noreply@z.ai>
+Co-Authored-By: Codex GPT-5.2 <noreply@openai.com>
+```
+
+**Reference:** @~/.claude/get-shit-done/references/multi-model-execution.md
+
+**Note:** Multi-model delegation is optional. If CLIs unavailable, execute tasks directly.
+</multi_model_delegation>
+
 <execution_flow>
 
 <step name="load_project_state" priority="first">
