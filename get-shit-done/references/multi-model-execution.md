@@ -129,50 +129,194 @@ Customize prompts sent to models:
 export GEMINI_API_KEY="your-key"
 ```
 
-## Usage in GSD Workflow
+## Usage Examples
 
-### Delegation Pattern
+### Automatic Multi-Model Flow (via `gsd` CLI)
 
-When executing tasks, the orchestrator (Opus) can delegate to GLM:
-
-```markdown
-## Implementation Spec
-
-Task: Create user authentication endpoint
-
-Target: src/api/auth/login.ts
-
-Requirements:
-- Validate email/password
-- Return JWT on success
-- Use bcrypt for password comparison
-
-Context:
-- Project uses Express
-- JWT library: jose
-- Database: PostgreSQL with Prisma
-```
-
-### CLI Commands
+The `gsd` CLI automatically orchestrates GLM for implementation and Codex for review:
 
 ```bash
-# Health check
+# Health check - verify all CLIs are available
 gsd doctor
 
-# Execute task with multi-model flow
-gsd do "Create login endpoint with JWT authentication"
+# Simple task - auto-delegates to GLM, reviewed by Codex
+gsd do "Add a validateEmail function to src/utils/validators.js"
 
-# Direct delegation
-opencode run -m zai-coding-plan/glm-4.7 "spec..."
+# With implementation spec file for complex tasks
+gsd do "Implement user registration" --spec registration-spec.md
+
+# Specify target file explicitly
+gsd do "Add logout endpoint" --target src/api/auth/logout.ts
+
+# Add extra context for the implementer
+gsd do "Fix the date formatting bug" --context "Use ISO 8601 format, timezone UTC"
+
+# Force delegation even if task seems complex
+gsd do "Refactor authentication module" --no-classify
+
+# Check if a task would be delegated or kept in Opus
+gsd classify "Add a simple utility function"
+# → DELEGATE to GLM (80% confidence)
+
+gsd classify "Design the database schema for multi-tenancy"
+# → KEEP in Opus (80% confidence)
 ```
+
+### Direct Model Usage (bypassing `gsd`)
+
+For finer control, call the CLIs directly:
+
+#### GLM (OpenCode) - Implementation
+
+```bash
+# Simple prompt
+opencode run -m zai-coding-plan/glm-4.7 "Create a function that validates URLs"
+
+# With stdin for longer prompts (recommended)
+cat implementation-spec.md | opencode run -m zai-coding-plan/glm-4.7 -
+
+# Use faster model for simple tasks
+opencode run -m zai-coding-plan/glm-4.7-flash "Add console.log debugging"
+
+# List available models
+opencode models | grep zai
+```
+
+#### Codex (OpenAI) - Review & Analysis
+
+```bash
+# Code review with high reasoning
+cat changes.diff | codex exec -m gpt-5.2-codex --sandbox read-only --reasoning-effort high -
+
+# Quick review with lower reasoning
+git diff | codex exec -m gpt-5.2-codex --sandbox read-only --reasoning-effort low -
+
+# Architecture review
+codex -m gpt-5.2-codex --sandbox read-only --reasoning-effort high \
+  -p "Review the architecture of this project for scalability concerns"
+
+# Security audit
+codex -m gpt-5.2-codex --sandbox read-only --reasoning-effort high \
+  -p "Audit this codebase for security vulnerabilities, focus on auth and input validation"
+```
+
+#### Claude (via Claude Code) - Planning & Orchestration
+
+```bash
+# Claude Code handles planning automatically when you run GSD commands
+# These run inside Claude Code, not as standalone CLI:
+
+/gsd:plan-phase      # Claude plans the phase
+/gsd:execute-phase   # Claude orchestrates, delegates to GLM/Codex
+/gsd:delegate        # Manually delegate current task to multi-model flow
+```
+
+### Example: Full Feature Implementation
+
+```bash
+# 1. Create implementation spec
+cat > feature-spec.md << 'EOF'
+## Task
+Add user profile endpoint with avatar upload
+
+## Target
+src/api/users/profile.ts
+
+## Requirements
+- GET /api/users/:id/profile - return user profile
+- PUT /api/users/:id/profile - update profile
+- POST /api/users/:id/avatar - upload avatar (max 5MB, jpg/png)
+- Store avatars in /uploads/avatars/
+
+## Context
+- Framework: Express with TypeScript
+- Auth: JWT middleware already exists at src/middleware/auth.ts
+- File upload: Use multer
+- Validation: Use zod schemas
+EOF
+
+# 2. Run with gsd (GLM implements, Codex reviews)
+gsd do "Implement user profile feature" --spec feature-spec.md
+
+# 3. If approved, changes are ready to commit
+git status
+git add -A
+git commit -m "feat: add user profile endpoint with avatar upload
+
+Co-Authored-By: GLM 4.7 <noreply@z.ai>
+Co-Authored-By: Codex GPT-5.2 <noreply@openai.com>"
+```
+
+### Example: Bug Fix Workflow
+
+```bash
+# 1. Classify the task
+gsd classify "Fix the off-by-one error in pagination"
+# → DELEGATE to GLM (mechanical fix)
+
+# 2. Run the fix
+gsd do "Fix the off-by-one error in pagination" \
+  --target src/utils/pagination.ts \
+  --context "Line 42 uses < instead of <=, causing last page to be skipped"
+
+# 3. Review output and commit
+```
+
+### Example: Direct Codex Review
+
+```bash
+# Review recent changes before committing
+git diff HEAD~1 > recent-changes.diff
+cat recent-changes.diff | codex exec -m gpt-5.2-codex \
+  --sandbox read-only \
+  --reasoning-effort high \
+  -
+
+# Review specific file for issues
+cat src/auth/login.ts | codex exec -m gpt-5.2-codex \
+  --sandbox read-only \
+  --reasoning-effort medium \
+  -p "Review this authentication code for security issues"
+```
+
+## GSD Workflow Integration
+
+### During `/gsd:execute-phase`
+
+1. **Orchestrator (Opus)** reads the plan and breaks it into tasks
+2. **For each task:**
+   - Runs `gsd classify` to check complexity
+   - If delegatable: runs `gsd do` with spec
+   - If complex: Opus implements directly
+3. **On approval:** Commits with multi-model attribution
+4. **On feedback:** Refines and retries (max 3 iterations)
 
 ### Review Flow
 
-1. **GLM implements** → Creates/modifies files
-2. **Git captures changes** → `git diff` + new files
-3. **Codex reviews** → Returns APPROVED or FEEDBACK
-4. **Loop until approved** → Max 3 iterations
-5. **Commit on approval** → Atomic commit with attribution
+```
+┌─────────────────┐
+│  gsd do "task"  │
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  GLM implements │ ← Creates/modifies files
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  git diff HEAD  │ ← Captures changes
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  Codex reviews  │ ← APPROVED or FEEDBACK
+└────────┬────────┘
+         ▼
+    ┌────┴────┐
+    │         │
+ APPROVED  FEEDBACK
+    │         │
+    ▼         ▼
+  Done    Retry (max 3x)
+```
 
 ## Cost Optimization
 

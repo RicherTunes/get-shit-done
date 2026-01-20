@@ -198,6 +198,55 @@ export GEMINI_API_KEY="your-key"
 
 ---
 
+## Usage Examples
+
+### Via `gsd` CLI (Automatic Orchestration)
+
+```bash
+# Verify setup
+gsd doctor
+
+# Simple implementation - GLM codes, Codex reviews
+gsd do "Add validateEmail function to src/utils.js"
+
+# With spec file for complex tasks
+gsd do "Implement auth" --spec auth-spec.md --target src/auth/index.ts
+
+# Add context for the implementer
+gsd do "Fix date bug" --context "Use ISO 8601, UTC timezone"
+
+# Check if task should be delegated
+gsd classify "Add a helper function"    # → DELEGATE
+gsd classify "Design auth architecture" # → KEEP in Opus
+```
+
+### Direct CLI Usage
+
+```bash
+# GLM - Implementation
+opencode run -m zai-coding-plan/glm-4.7 "Create URL validator function"
+cat spec.md | opencode run -m zai-coding-plan/glm-4.7 -
+
+# Codex - Code Review
+git diff | codex exec -m gpt-5.2-codex --sandbox read-only --reasoning-effort high -
+
+# Codex - Security Audit
+codex -m gpt-5.2-codex --sandbox read-only --reasoning-effort high \
+  -p "Audit for security vulnerabilities"
+```
+
+### In GSD Workflow
+
+```bash
+/gsd:plan-phase      # Claude plans
+/gsd:execute-phase   # Claude orchestrates → GLM implements → Codex reviews
+/gsd:delegate        # Manually delegate to multi-model flow
+```
+
+See [multi-model-execution.md](get-shit-done/references/multi-model-execution.md) for detailed examples.
+
+---
+
 ## New Commands
 
 This fork adds:
