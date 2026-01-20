@@ -23,64 +23,124 @@ For cost savings, delegate implementation tasks to cheaper models while retainin
 - **GLM 4.7 (OpenCode CLI):** Implement code (cheap, fast)
 - **Codex GPT-5.2:** Review implementations (thorough)
 
-**When to Delegate:**
+**Prerequisites:**
+- GetShitDone CLI installed: `gsd doctor` should pass
+- Configuration in `.gsd/models.json` and `.gsd/prompts.json` (optional)
+
+### Quick Delegation (Recommended)
+
+Use the `gsd` CLI which handles the full orchestration loop:
+
+```bash
+# Simple task delegation
+gsd do "Add a logout button to the navbar"
+
+# With implementation spec file
+gsd do "Implement user authentication" --spec task-spec.md --target src/auth/login.ts
+
+# Force delegation (skip complexity check)
+gsd do "Complex task description" --no-classify
+```
+
+### Task Classification
+
+Before delegating, check if the task is suitable:
+
+```bash
+gsd classify "Add a function to validate email addresses"
+# → DELEGATE to GLM (80% confidence, reason: simple-task)
+
+gsd classify "Design authentication architecture with JWT refresh tokens"
+# → KEEP in Opus (80% confidence, reason: complex-task)
+```
+
+### When to Delegate
 
 | Task Type | Delegate? | Why |
 |-----------|-----------|-----|
-| Simple implementations | Yes → GLM | Straightforward coding |
-| Bug fixes | Yes → GLM | Mechanical fixes |
-| Refactoring | Yes → GLM | Pattern transformations |
+| Simple implementations | Yes → `gsd do` | Straightforward coding |
+| Bug fixes | Yes → `gsd do` | Mechanical fixes |
+| Refactoring | Yes → `gsd do` | Pattern transformations |
+| Test additions | Yes → `gsd do` | Boilerplate code |
 | Architecture decisions | No | Requires strategic thinking |
 | Complex integrations | No | Needs full context |
+| Security-critical code | No | Needs careful review |
 
-**Delegation Flow:**
+### Manual Delegation Flow
 
-1. **Create implementation spec** from task:
+If you need finer control than `gsd do` provides:
+
+1. **Check classification:**
+   ```bash
+   gsd classify "[task description]"
    ```
-   === TASK ===
+
+2. **Create implementation spec file** (`task-spec.md`):
+   ```markdown
+   ## Task
    [task description]
 
-   === TARGET ===
+   ## Target
    File: [exact path]
 
-   === REQUIREMENTS ===
-   - [specific requirement]
+   ## Requirements
+   - [specific requirement 1]
+   - [specific requirement 2]
 
-   === CONTEXT ===
-   [relevant code snippets, dependencies]
+   ## Context
+   - Project uses: [framework, libraries]
+   - Related files: [existing code to reference]
+   - Code style: [conventions to follow]
    ```
 
-2. **Delegate to GLM:**
+3. **Run with spec:**
    ```bash
-   cd [project_dir]
-   opencode run -m zai-coding-plan/glm-4.7 "[spec]"
+   gsd do "[task summary]" --spec task-spec.md --target [file]
    ```
 
-3. **Capture changes:**
-   ```bash
-   git diff HEAD
-   git status --porcelain
-   ```
+4. **On success:** Commit with attribution (see below)
+   **On failure:** Check feedback, refine spec, retry
 
-4. **Send to Codex for review:**
-   ```bash
-   echo "[changes]" | codex exec -m gpt-5.2-codex --sandbox read-only -
-   ```
+### Commit Attribution
 
-5. **If APPROVED:** Commit with attribution
-   **If FEEDBACK:** Refine spec and re-delegate (max 3 iterations)
-
-**Commit Attribution:**
+When task completes via multi-model flow:
 ```
 feat(08-02): implement user registration
 
+- Add registration endpoint
+- Add input validation
+- Add password hashing
+
 Co-Authored-By: GLM 4.7 <noreply@z.ai>
 Co-Authored-By: Codex GPT-5.2 <noreply@openai.com>
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+### Configuration
+
+Models and prompts can be customized per-project:
+
+**`.gsd/models.json`** - Model selection and settings:
+```json
+{
+  "codex": {
+    "model": "gpt-5.2-codex",
+    "reasoningEffort": "high"
+  }
+}
+```
+
+**`.gsd/prompts.json`** - Custom prompt templates:
+```json
+{
+  "review": "Your custom review prompt...",
+  "implementation": "Your custom implementation instructions..."
+}
 ```
 
 **Reference:** @~/.claude/get-shit-done/references/multi-model-execution.md
 
-**Note:** Multi-model delegation is optional. If CLIs unavailable, execute tasks directly.
+**Note:** Multi-model delegation is optional. If `gsd doctor` fails, execute tasks directly.
 </multi_model_delegation>
 
 <execution_flow>
